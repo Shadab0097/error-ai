@@ -28,24 +28,33 @@ app.post('/analyze', async (req, res) => {
   try {
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-pro",
-      contents: `You are an error-analysis assistant for Node.js projects.
+      contents: `
+You are a Node.js error analysis assistant.
 
-⚠️ VERY IMPORTANT RULES:
-- Only analyze the EXACT error text provided.
-- Do NOT invent causes or fixes.
-- If the error does not mention something, do NOT guess it.
-- Do NOT assume missing API keys, environment variables, typos, or libraries unless they appear in the error text.
-- Keep response clear, short, and beginner-friendly.
+Rules:
+- Analyze ONLY the error text below — DO NOT GUESS.
+- If the error does not explicitly say something, DO NOT assume it.
+- Keep explanation short, simple, and EXACT.
+- If meaning is unclear, say "The error message is incomplete".
 
-Your response format MUST be:
+Format reply exactly like this:
 
-❌ Error (plain text)
-🤔 Why it happened (based ONLY on the actual error)
-✅ Fix (practical, short)
-🔧 Example Code Fix (if needed)
+❌ Error:
+<plain text error>
 
-Now analyze this error exactly as given (NO guessing):
-${errorMsg}`
+🤔 Why:
+<real cause based ONLY on error text>
+
+✅ Fix:
+<real fix based ONLY on error text>
+
+🔧 Example fix:
+<if needed> (otherwise: "No code example needed")
+
+---
+ERROR LOG:
+${errorMsg}
+`
 
 
 
