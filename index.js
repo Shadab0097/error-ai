@@ -20,6 +20,13 @@ function cleanGeminiResponse(text) {
 app.post('/analyze', async (req, res) => {
   const { errorMsg, code } = req.body;
 
+  const controller = new AbortController()
+
+  req.on('close', () => {
+    console.log('aborting ai request')
+    controller.abort()
+  })
+
   if (!errorMsg) {
     return res.status(400).json({ error: "errorMsg is required" });
   }
@@ -27,7 +34,7 @@ app.post('/analyze', async (req, res) => {
   console.log('...wait analyzing the error.')
   try {
     const response = await genAI.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.0-flash-lite",
       contents: `You are a senior Node.js debugging assistant.
 
 You will be given:
@@ -77,8 +84,8 @@ ${errorMsg}
 FILE SNIPPET (if any):
 ${code}
 
-`
-
+`,
+      signal: controller.signal
 
     });
 
@@ -90,18 +97,55 @@ ${code}
     const cleanedText = cleanGeminiResponse(candidateText);
     console.log("\n🤖 Gemini Explanation:");
 
+    if (res.headersSent) {
+      console.log('Response was already sent or client disconnected.');
+      return;
+    }
 
     res.json({ text: cleanedText });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    if (e.name === 'AbortError') {
+      console.log('AI request was successfully aborted.');
+      // Don't send a response, the client is already gone.
+      return;
+    }
+    console.error("FATAL SERVER ERROR:", e);
+
+
+    const friendlyErrorText = `❌ Error: The AI analysis server failed.
+
+🤔 Why: An unexpected error occurred on the server: ${e.message}
+
+✅ Fix: Please try again. If it continues, the server may be down or experiencing high traffic.`;
+
+    // Send the error in the format your client expects
+    res.status(500).json({ text: friendlyErrorText });
   }
 }
 )
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.send('Download error-ai-cli fron npm😁!');
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
+const shutdown = () => {
+  console.log('Shutdown signal received, closing server gracefully...');
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0); // Exit the process
+  });
+};
+
+// Listen for signals that nodemon/Ctrl+C use
+process.on('SIGINT', shutdown); // Ctrl+C in terminal
+process.on('SIGTERM', shutdown); // 'kill' command or nodemon restart
+
+
+
+
+
+
